@@ -34,10 +34,11 @@ jobs:
       - name: Wait for MCP and run smoke tests
         run: |
           for i in {1..60}; do
-            if curl --fail --silent http://127.0.0.1:9222/json/version >/dev/null 2>&1; then break; fi
+            if curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:3000/mcp | grep -Eq '^(200|400|405)$'; then break; fi
             sleep 2
           done
-          MCP_BASE_URL=http://127.0.0.1:3000 CDP_URL=http://127.0.0.1:9222 bash tests/smoke.sh
+          MCP_BASE_URL=http://127.0.0.1:3000 bash tests/smoke.sh
+          docker exec google-chrome-mcp bun run /app/tests/multi-session.ts
 
       - name: Login to GHCR
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'

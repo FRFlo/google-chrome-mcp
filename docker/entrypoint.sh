@@ -4,9 +4,10 @@ set -Eeuo pipefail
 : "${DISPLAY:=:99}"
 : "${SCREEN_WIDTH:=1920}"
 : "${SCREEN_HEIGHT:=1080}"
-: "${CHROME_DATA_DIR:=/data/chrome}"
-: "${DOWNLOAD_DIR:=/data/downloads}"
+: "${SESSION_ROOT:=/data/sessions}"
 : "${MCP_PORT:=3000}"
+: "${MAX_SESSIONS:=4}"
+: "${SESSION_TTL_MS:=1800000}"
 : "${VNC_PORT:=5900}"
 : "${NOVNC_PORT:=6080}"
 
@@ -15,7 +16,7 @@ if [[ -z "${VNC_PASSWORD:-}" ]]; then
   exit 1
 fi
 
-mkdir -p "$CHROME_DATA_DIR" "$DOWNLOAD_DIR" /tmp/runtime-node
+mkdir -p "$SESSION_ROOT" /tmp/runtime-node
 chmod 0700 /tmp/runtime-node
 export XDG_RUNTIME_DIR=/tmp/runtime-node
 
@@ -31,30 +32,6 @@ printf '%s\n' "$VNC_PASSWORD" | x11vnc -storepasswd - /tmp/vncpasswd >/dev/null
 x11vnc -display "$DISPLAY" -rfbport "$VNC_PORT" -rfbauth /tmp/vncpasswd -forever -shared -noxdamage >/tmp/x11vnc.log 2>&1 &
 websockify --web=/usr/share/novnc "$NOVNC_PORT" "localhost:$VNC_PORT" >/tmp/websockify.log 2>&1 &
 
-google-chrome \
-  --display="$DISPLAY" \
-  --remote-debugging-address=127.0.0.1 \
-  --remote-debugging-port=9222 \
-  --user-data-dir="$CHROME_DATA_DIR" \
-  --download-default-directory="$DOWNLOAD_DIR" \
-  --no-first-run \
-  --no-default-browser-check \
-  --disable-dev-shm-usage \
-  --start-maximized \
-  about:blank >/tmp/chrome.log 2>&1 &
-
-for _ in {1..60}; do
-  if curl --fail --silent http://127.0.0.1:9222/json/version >/dev/null; then
-    break
-  fi
-  sleep 1
-done
-
-if ! curl --fail --silent http://127.0.0.1:9222/json/version >/dev/null; then
-  echo "Chrome DevTools endpoint did not become ready" >&2
-  exit 1
-fi
-
-exec mcp-proxy --port "$MCP_PORT" --server stream -- \
-  chrome-devtools-mcp --browserUrl=http://127.0.0.1:9222
+export SESSION_ROOT MAX_SESSIONS SESSION_TTL_MS
+exec bun run /app/src/gateway.ts
 

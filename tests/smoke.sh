@@ -2,9 +2,6 @@
 set -Eeuo pipefail
 
 BASE_URL="${MCP_BASE_URL:-http://127.0.0.1:${MCP_PORT:-3000}}"
-CDP_URL="${CDP_URL:-http://127.0.0.1:9222}"
-
-curl --fail --silent "$CDP_URL/json/version" | grep -q '"Browser"'
 curl --fail --silent "http://127.0.0.1:${NOVNC_PORT:-6080}/vnc.html" | grep -q 'noVNC'
 
 response="$(curl --silent --show-error \
