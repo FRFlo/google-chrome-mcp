@@ -52,10 +52,10 @@ Depuis le client MCP connecté au gateway :
 
 1. appeler `create_session` ;
 2. conserver l’UUID `session_id` retourné ;
-3. appeler `chrome_call` avec `session_id`, `tool` et `arguments` ;
+3. appeler directement les outils Chrome DevTools avec `session_id` ;
 4. appeler `destroy_session` en fin de travail.
 
-Les outils de gestion disponibles sont `create_session`, `destroy_session`, `list_sessions` et `session_status`. La limite par défaut est de quatre sessions (`MAX_SESSIONS`) et le TTL d’inactivité est de 30 minutes (`SESSION_TTL_MS`).
+Les outils de gestion disponibles sont `create_session`, `destroy_session`, `list_sessions` et `session_status`. Les 29 outils Chrome DevTools officiels sont exposés directement, avec `session_id` ajouté à leur schéma. La limite par défaut est de quatre sessions (`MAX_SESSIONS`) et le TTL d’inactivité est de 30 minutes (`SESSION_TTL_MS`).
 
 ## Persistance
 

@@ -12,12 +12,12 @@ const first = await create();
 const second = await create();
 if (first.session_id === second.session_id) throw new Error("Session IDs are not unique");
 
-const pages = async (session_id: string) => text(await client.callTool({ name: "chrome_call", arguments: { session_id, tool: "list_pages", arguments: {} } }));
+const pages = async (session_id: string) => text(await client.callTool({ name: "list_pages", arguments: { session_id } }));
 const firstBefore = await pages(first.session_id);
 const secondBefore = await pages(second.session_id);
 if (!firstBefore.includes("about:blank") || !secondBefore.includes("about:blank")) throw new Error("Initial pages are missing");
 
-await client.callTool({ name: "chrome_call", arguments: { session_id: first.session_id, tool: "new_page", arguments: { url: "data:text/html,<title>Session One</title>" } } });
+await client.callTool({ name: "new_page", arguments: { session_id: first.session_id, url: "data:text/html,<title>Session One</title>" } });
 const firstAfter = await pages(first.session_id);
 const secondAfter = await pages(second.session_id);
 if (!firstAfter.includes("Session One")) throw new Error("First session did not create its page");

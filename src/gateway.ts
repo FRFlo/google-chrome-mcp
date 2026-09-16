@@ -28,6 +28,7 @@ const DISPLAY = process.env.DISPLAY ?? ":99";
 const SESSION_ROOT = process.env.SESSION_ROOT ?? "/data/sessions";
 const CHROME_BIN = process.env.CHROME_BIN ?? "google-chrome";
 const MCP_PACKAGE = `${process.cwd()}/node_modules/chrome-devtools-mcp/build/src/bin/chrome-devtools-mcp.js`;
+const COMMANDS_PACKAGE = `${process.cwd()}/node_modules/chrome-devtools-mcp/build/src/config/cli-options.js`;
 const sessions = new Map<string, Session>();
 const transports = new Map<string, StreamableHTTPServerTransport>();
 let nextCdpPort = 9223;
@@ -53,21 +54,59 @@ const managementTools = [
     description: "Read the status and timestamps of one isolated Chrome session.",
     inputSchema: { type: "object", properties: { session_id: { type: "string" } }, required: ["session_id"], additionalProperties: false },
   },
-  {
-    name: "chrome_call",
-    description: "Call any Chrome DevTools MCP tool. Every call requires session_id and passes the remaining arguments to the selected Chrome tool.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        session_id: { type: "string", description: "UUID returned by create_session" },
-        tool: { type: "string", description: "Chrome DevTools MCP tool name, for example list_pages or navigate_page" },
-        arguments: { type: "object", additionalProperties: true },
-      },
-      required: ["session_id", "tool"],
-      additionalProperties: false,
-    },
-  },
 ];
+
+const defaultChromeTools = [
+  "click", "close_page", "drag", "emulate", "evaluate_script", "fill", "fill_form",
+  "get_console_message", "get_network_request", "handle_dialog", "hover", "lighthouse_audit",
+  "list_console_messages", "list_network_requests", "list_pages", "navigate_page", "new_page",
+  "performance_analyze_insight", "performance_start_trace", "performance_stop_trace", "press_key",
+  "resize_page", "select_page", "take_heapsnapshot", "take_screenshot", "take_snapshot", "type_text",
+  "upload_file", "wait_for",
+];
+
+type CommandArgument = { name: string; type: string; description?: string; required?: boolean; enum?: string[]; default?: unknown };
+type ChromeCommand = { description: string; category?: string; args: Record<string, CommandArgument> };
+type McpTool = { name: string; description: string; inputSchema: Record<string, unknown> };
+
+function commandArgumentSchema(argument: CommandArgument) {
+  const schema: Record<string, unknown> = { type: argument.type === "integer" ? "integer" : argument.type === "array" ? "array" : argument.type, description: argument.description };
+  if (argument.enum) schema.enum = argument.enum;
+  if (argument.default !== undefined) schema.default = argument.default;
+  if (argument.type === "array") schema.items = {};
+  return schema;
+}
+
+const { commands } = await import(COMMANDS_PACKAGE) as { commands: Record<string, ChromeCommand> };
+commands.fill_form = {
+  description: "Fill out multiple form elements (inputs, selects, checkboxes, radios) at once.",
+  args: {
+    elements: { name: "elements", type: "array", description: "Elements from a page snapshot to fill out.", required: true },
+    includeSnapshot: { name: "includeSnapshot", type: "boolean", description: "Whether to include a snapshot in the response.", required: false },
+  },
+};
+commands.wait_for = {
+  description: "Wait for the specified text to appear on the selected page.",
+  args: {
+    text: { name: "text", type: "array", description: "Non-empty list of texts.", required: true },
+    timeout: { name: "timeout", type: "integer", description: "Maximum wait time in milliseconds.", required: false },
+  },
+};
+const chromeTools: McpTool[] = defaultChromeTools.map(name => {
+  const command = commands[name];
+  const properties: Record<string, unknown> = { session_id: { type: "string", description: "UUID returned by create_session" } };
+  const required = ["session_id"];
+  for (const [argumentName, argument] of Object.entries(command.args)) {
+    properties[argumentName] = commandArgumentSchema(argument);
+    if (argument.required) required.push(argumentName);
+  }
+  return {
+    name,
+    description: `${command.description} Every call requires session_id.`,
+    inputSchema: { type: "object", properties, required, additionalProperties: false },
+  };
+});
+const toolNames = new Set(chromeTools.map(tool => tool.name));
 
 async function waitForChrome(port: number) {
   for (let attempt = 0; attempt < 60; attempt++) {
@@ -137,7 +176,7 @@ function gatewayServer() {
     { name: "google-chrome-mcp-gateway", version: "1.0.0" },
     { capabilities: { tools: {} } },
   );
-  server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: managementTools }));
+  server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: [...managementTools, ...chromeTools] }));
   server.setRequestHandler(CallToolRequestSchema, async (request) => {
     const args = request.params.arguments ?? {};
     switch (request.params.name) {
@@ -155,13 +194,15 @@ function gatewayServer() {
         const session = getSession(args.session_id);
         return { content: [{ type: "text", text: JSON.stringify({ session_id: session.id, status: "ready", cdp_port: session.cdpPort, created_at: session.createdAt, last_used_at: session.lastUsedAt }) }] };
       }
-      case "chrome_call": {
+      default: {
+        if (!toolNames.has(request.params.name)) {
+          throw new McpError(ErrorCode.MethodNotFound, `Unknown gateway tool: ${request.params.name}`);
+        }
         const session = getSession(args.session_id);
-        if (typeof args.tool !== "string" || args.tool === "chrome_call") throw new McpError(ErrorCode.InvalidParams, "tool must be a Chrome DevTools MCP tool name");
-        return await session.client.callTool({ name: args.tool, arguments: (args.arguments as Record<string, unknown>) ?? {} });
+        const forwardedArgs = { ...args };
+        delete forwardedArgs.session_id;
+        return await session.client.callTool({ name: request.params.name, arguments: forwardedArgs });
       }
-      default:
-        throw new McpError(ErrorCode.MethodNotFound, `Unknown gateway tool: ${request.params.name}`);
     }
   });
   return server;
