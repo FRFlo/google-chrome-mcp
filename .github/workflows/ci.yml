@@ -27,7 +27,6 @@ jobs:
       - name: Start container
         run: |
           docker run -d --name google-chrome-mcp \
-            -e VNC_PASSWORD=ci-only-password \
             -p 3000:3000 -p 5900:5900 -p 6080:6080 -p 9222:9222 \
             google-chrome-mcp:test
 

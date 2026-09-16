@@ -25,7 +25,6 @@ Le MCP officiel fonctionne en stdio. `mcp-proxy` fournit le transport HTTP atten
 
 ```bash
 cp .env.example .env
-# Modifiez au minimum VNC_PASSWORD dans .env.
 docker compose up -d --build
 ```
 
@@ -108,7 +107,7 @@ bun run tests/multi-session.ts
 
 Le conteneur n’ajoute pas de reverse proxy ni d’authentification applicative. Les ports sont volontairement exposés par Compose afin que l’utilisateur puisse gérer lui-même le reverse proxy, TLS, le réseau et les contrôles d’accès.
 
-Ne commitez jamais `.env` ou un vrai mot de passe VNC. N’exposez pas ces ports directement sur Internet sans protection.
+VNC et noVNC sont accessibles sans authentification. N’exposez pas ces ports directement sur Internet sans protection.
 
 ## CI et image GHCR
 
