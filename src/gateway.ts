@@ -135,6 +135,8 @@ async function createSession(): Promise<Session> {
   const chrome = Bun.spawn([
     CHROME_BIN,
     `--display=${DISPLAY}`,
+    "--no-sandbox",
+    "--disable-setuid-sandbox",
     "--remote-debugging-address=127.0.0.1",
     `--remote-debugging-port=${cdpPort}`,
     `--user-data-dir=${profile}`,
