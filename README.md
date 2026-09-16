@@ -96,7 +96,7 @@ Ne commitez jamais `.env` ou un vrai mot de passe VNC. N’exposez pas ces ports
 
 ## CI et image GHCR
 
-GitHub Actions construit l’image, exécute les smoke tests avec Docker, puis publie sur le GitHub Container Registry pour les pushes sur `main` :
+GitHub Actions construit l’image, exécute les smoke tests avec Docker, puis publie sur le GitHub Container Registry pour les pushes sur `develop` :
 
 ```text
 ghcr.io/frflo/google-chrome-mcp:latest
