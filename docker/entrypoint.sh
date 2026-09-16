@@ -33,7 +33,7 @@ websockify --web=/usr/share/novnc "$NOVNC_PORT" "localhost:$VNC_PORT" >/tmp/webs
 
 google-chrome \
   --display="$DISPLAY" \
-  --remote-debugging-address=127.0.0.1 \
+  --remote-debugging-address=0.0.0.0 \
   --remote-debugging-port=9222 \
   --user-data-dir="$CHROME_DATA_DIR" \
   --download-default-directory="$DOWNLOAD_DIR" \
