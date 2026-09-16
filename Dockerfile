@@ -1,11 +1,9 @@
-FROM node:22-bookworm-slim
+FROM oven/bun:1.3.14-debian
 
 ENV DEBIAN_FRONTEND=noninteractive \
     DISPLAY=:99 \
     SCREEN_WIDTH=1920 \
     SCREEN_HEIGHT=1080 \
-    CHROME_DATA_DIR=/data/chrome \
-    DOWNLOAD_DIR=/data/downloads \
     MCP_PORT=3000 \
     VNC_PORT=5900 \
     NOVNC_PORT=6080
@@ -17,6 +15,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     fluxbox \
     fonts-liberation \
     gnupg \
+    nodejs \
     novnc \
     unzip \
     wget \
@@ -30,15 +29,21 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && apt-get install -y --no-install-recommends google-chrome-stable \
     && rm -rf /var/lib/apt/lists/*
 
-RUN npm install --global --no-fund --no-audit chrome-devtools-mcp@latest mcp-proxy@latest \
-    && mkdir -p /data/chrome /data/downloads /tmp/runtime-node \
-    && chown -R node:node /data /tmp/runtime-node
+COPY package.json bun.lock /tmp/app/
+RUN cd /tmp/app && bun install --frozen-lockfile \
+    && mkdir -p /data/sessions /data/downloads /tmp/runtime-node \
+    && chown -R bun:bun /data /tmp/runtime-node
 
+WORKDIR /app
+COPY package.json bun.lock ./
+COPY src ./src
+COPY tests ./tests
 COPY docker/entrypoint.sh /usr/local/bin/google-chrome-mcp
-RUN chmod 0755 /usr/local/bin/google-chrome-mcp
+RUN cp -a /tmp/app/node_modules ./node_modules \
+    && chmod 0755 /usr/local/bin/google-chrome-mcp \
+    && chown -R bun:bun /app
 
-USER node
-WORKDIR /home/node
+USER bun
 
 EXPOSE 3000 5900 6080
 

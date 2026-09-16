@@ -1,0 +1,19 @@
+{
+  "name": "google-chrome-mcp",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "bun run src/gateway.ts",
+    "test": "bun test",
+    "test:multi-session": "bun run tests/multi-session.ts"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.30.0",
+    "chrome-devtools-mcp": "1.9.0",
+    "mcp-proxy": "6.7.18"
+  },
+  "devDependencies": {
+    "@types/node": "22.15.21"
+  }
+}
+

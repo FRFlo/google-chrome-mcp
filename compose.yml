@@ -14,24 +14,22 @@ services:
       VNC_PASSWORD: ${VNC_PASSWORD:?Set VNC_PASSWORD in .env}
       SCREEN_WIDTH: ${SCREEN_WIDTH:-1920}
       SCREEN_HEIGHT: ${SCREEN_HEIGHT:-1080}
-      CHROME_DATA_DIR: ${CHROME_DATA_DIR:-/data/chrome}
-      DOWNLOAD_DIR: ${DOWNLOAD_DIR:-/data/downloads}
+      MAX_SESSIONS: ${MAX_SESSIONS:-4}
+      SESSION_TTL_MS: ${SESSION_TTL_MS:-1800000}
     ports:
-      - "${MCP_PORT:-3000}:3000"
-      - "${VNC_PORT:-5900}:5900"
-      - "${NOVNC_PORT:-6080}:6080"
+      - "${MCP_PORT:-3000}:${MCP_PORT:-3000}"
+      - "${VNC_PORT:-5900}:${VNC_PORT:-5900}"
+      - "${NOVNC_PORT:-6080}:${NOVNC_PORT:-6080}"
     volumes:
-      - chrome-data:/data/chrome
-      - chrome-downloads:/data/downloads
+      - chrome-sessions:/data/sessions
     shm_size: 2gb
     healthcheck:
-      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:9222/json/version >/dev/null && curl -sS -o /dev/null -w '%{http_code}' http://127.0.0.1:3000/mcp | grep -Eq '^(200|400|405)$'"]
+      test: ["CMD-SHELL", "curl -sS -o /dev/null -w '%{http_code}' http://127.0.0.1:$${MCP_PORT}/mcp | grep -Eq '^(200|400|405)$'"]
       interval: 10s
       timeout: 5s
       retries: 12
       start_period: 30s
 
 volumes:
-  chrome-data:
-  chrome-downloads:
+  chrome-sessions:
 

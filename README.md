@@ -7,10 +7,11 @@ Google Chrome Stable graphique, **Chrome DevTools MCP** et accès VNC/noVNC dans
 Le conteneur unique démarre :
 
 1. un bureau virtuel Xvfb en `1920x1080` ;
-2. Google Chrome Stable avec le protocole CDP sur le port interne `9222` ;
-3. x11vnc sur le port `5900` ;
-4. noVNC/websockify sur le port `6080` ;
-5. `chrome-devtools-mcp` officiel derrière `mcp-proxy`, en Streamable HTTP sur le port `3000`.
+2. x11vnc sur le port `5900` ;
+3. noVNC/websockify sur le port `6080` ;
+4. un gateway Bun/TypeScript en Streamable HTTP sur le port `3000`.
+
+Le gateway crée dynamiquement un Chrome et un serveur `chrome-devtools-mcp` officiel par session. Chaque session possède un profil Chrome et un port CDP distincts, puis les appels sont routés avec un identifiant `session_id` court de 8 caractères hexadécimaux. L’UUID complet reste interne au gateway.
 
 Le MCP officiel fonctionne en stdio. `mcp-proxy` fournit le transport HTTP attendu par les clients MCP, sur `http://localhost:3000/mcp`.
 
@@ -44,6 +45,17 @@ Accès par défaut :
 | noVNC | `http://localhost:6080/vnc.html` |
 
 Les ports hôte sont configurables dans `.env` via `MCP_PORT`, `VNC_PORT` et `NOVNC_PORT`.
+
+## Sessions isolées
+
+Depuis le client MCP connecté au gateway :
+
+1. appeler `create_session` ;
+2. conserver le `session_id` de 8 caractères retourné ;
+3. appeler directement les outils Chrome DevTools avec `session_id` ;
+4. appeler `destroy_session` en fin de travail.
+
+Les outils de gestion disponibles sont `create_session`, `destroy_session`, `list_sessions` et `session_status`. Les 29 outils Chrome DevTools officiels sont exposés directement, avec `session_id` ajouté à leur schéma. La limite par défaut est de quatre sessions (`MAX_SESSIONS`) et le TTL d’inactivité est de 30 minutes (`SESSION_TTL_MS`).
 
 ## Persistance
 
@@ -86,7 +98,11 @@ Après le démarrage du conteneur :
 bash tests/smoke.sh
 ```
 
-Les smoke tests vérifient CDP, noVNC et la négociation MCP `initialize`.
+Les smoke tests vérifient noVNC et la négociation MCP `initialize`. Le test multi-session utilise le SDK MCP officiel pour créer deux Chromes, vérifier leurs pages indépendantes, puis les détruire :
+
+```bash
+bun run tests/multi-session.ts
+```
 
 ## Sécurité
 
