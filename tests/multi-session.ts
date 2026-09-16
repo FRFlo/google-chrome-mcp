@@ -11,6 +11,7 @@ const create = async () => JSON.parse(text(await client.callTool({ name: "create
 const first = await create();
 const second = await create();
 if (first.session_id === second.session_id) throw new Error("Session IDs are not unique");
+if (![first.session_id, second.session_id].every((id: string) => /^[0-9a-f]{8}$/.test(id))) throw new Error("Session IDs are not 8-character hexadecimal prefixes");
 
 const pages = async (session_id: string) => text(await client.callTool({ name: "list_pages", arguments: { session_id } }));
 const firstBefore = await pages(first.session_id);

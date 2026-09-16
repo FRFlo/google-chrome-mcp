@@ -13,6 +13,7 @@ import {
 
 type Session = {
   id: string;
+  internalId: string;
   createdAt: number;
   lastUsedAt: number;
   cdpPort: number;
@@ -36,12 +37,12 @@ let nextCdpPort = 9223;
 const managementTools = [
   {
     name: "create_session",
-    description: "Create an isolated Chrome session and return its UUID.",
+    description: "Create an isolated Chrome session and return its 8-character session_id.",
     inputSchema: { type: "object", properties: {}, additionalProperties: false },
   },
   {
     name: "destroy_session",
-    description: "Destroy an isolated Chrome session and its browser process.",
+    description: "Destroy an isolated Chrome session and its browser process using its 8-character session_id.",
     inputSchema: { type: "object", properties: { session_id: { type: "string" } }, required: ["session_id"], additionalProperties: false },
   },
   {
@@ -51,7 +52,7 @@ const managementTools = [
   },
   {
     name: "session_status",
-    description: "Read the status and timestamps of one isolated Chrome session.",
+    description: "Read the status and timestamps of one isolated Chrome session using its 8-character session_id.",
     inputSchema: { type: "object", properties: { session_id: { type: "string" } }, required: ["session_id"], additionalProperties: false },
   },
 ];
@@ -94,7 +95,7 @@ commands.wait_for = {
 };
 const chromeTools: McpTool[] = defaultChromeTools.map(name => {
   const command = commands[name];
-  const properties: Record<string, unknown> = { session_id: { type: "string", description: "UUID returned by create_session" } };
+  const properties: Record<string, unknown> = { session_id: { type: "string", description: "8-character session_id returned by create_session" } };
   const required = ["session_id"];
   for (const [argumentName, argument] of Object.entries(command.args)) {
     properties[argumentName] = commandArgumentSchema(argument);
@@ -123,9 +124,14 @@ async function createSession(): Promise<Session> {
   if (sessions.size >= MAX_SESSIONS) {
     throw new McpError(ErrorCode.InvalidRequest, `Maximum session limit reached (${MAX_SESSIONS})`);
   }
-  const id = randomUUID();
+  let internalId = randomUUID();
+  let id = internalId.slice(0, 8);
+  while (sessions.has(id)) {
+    internalId = randomUUID();
+    id = internalId.slice(0, 8);
+  }
   const cdpPort = nextCdpPort++;
-  const profile = `${SESSION_ROOT}/${id}/chrome`;
+  const profile = `${SESSION_ROOT}/${internalId}/chrome`;
   const chrome = Bun.spawn([
     CHROME_BIN,
     `--display=${DISPLAY}`,
@@ -148,7 +154,7 @@ async function createSession(): Promise<Session> {
   const client = new Client({ name: "google-chrome-mcp-gateway", version: "1.0.0" });
   await client.connect(transport);
   const now = Date.now();
-  const session = { id, createdAt: now, lastUsedAt: now, cdpPort, chrome, client, transport };
+  const session = { id, internalId, createdAt: now, lastUsedAt: now, cdpPort, chrome, client, transport };
   sessions.set(id, session);
   return session;
 }
